@@ -60,6 +60,57 @@ npm install
 
 本项目直接查询 telegram-search 的 PostgreSQL 数据库，不依赖其 WebSocket API。telegram-search 负责同步消息，本项目负责让 Claude 读取。
 
+## 应用场景
+
+### 场景一：个人项目进度追踪（当前方案）
+
+你在本机跑 telegram-search，Claude Code 通过 MCP 直接查本地数据库。
+
+适合：一个人管多个项目群，想让 Claude 帮你定期梳理进展，不用手动翻记录。
+
+```
+telegram-search（本机 Docker）→ PostgreSQL（本机）→ MCP server（本机）→ 你的 Claude Code
+```
+
+### 场景二：团队共享（需要服务器）
+
+把 telegram-search 和 PostgreSQL 部署到服务器，MCP server 暴露远端 HTTP 接口，团队所有人的 Claude Code 连同一个数据源。
+
+适合：产品、研发、项目经理各自用 Claude 查同一个群的消息，不用每个人都自己同步。
+
+```
+telegram-search（服务器）→ PostgreSQL（服务器）→ MCP server（服务器，HTTP/SSE）
+                                                        ↓
+                                          团队所有人的 Claude Code
+```
+
+服务器配置参考：2核2G 即可，国内云服务器约 ¥50-100/月。
+
+部署步骤：
+1. 服务器上按 telegram-search 文档跑 Docker Compose
+2. 修改 `src/index.ts` 中的 transport 从 `StdioServerTransport` 改为 `SSEServerTransport`
+3. 团队成员在各自 `~/.claude/mcp.json` 中填写服务器地址即可
+
+### 场景三：接入其他 AI 工具
+
+同一个 MCP server 可以同时接入 Cursor、Windsurf、任何支持 MCP 协议的工具，不需要重复配置。
+
+## 实际使用方式
+
+启动 telegram-search 并完成 Telegram 登录同步后，在 Claude Code 中直接用自然语言：
+
+**查群列表**
+> 列出所有已同步的群
+
+**分析项目进展**
+> 帮我分析一下群 3695601502 从开始到现在的进展，按模块梳理
+
+**搜索特定内容**
+> 在群 3695601502 里搜索"上线"相关的讨论
+
+**定期汇报**
+> 总结群 3695601502 本周的主要决策和待办事项
+
 ## License
 
 MIT
