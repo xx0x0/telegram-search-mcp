@@ -1,6 +1,12 @@
 # telegram-search-mcp
 
-基于 [telegram-search](https://github.com/groupultra/telegram-search) 的 MCP 服务，让 Claude Code 可以直接查询已同步的 Telegram 群消息，无需手动复制粘贴。
+基于 [telegram-search](https://github.com/groupultra/telegram-search) 的 MCP 扩展，让 Claude Code 可以直接查询已同步的 Telegram 群消息。支持按群、关键词、时间段检索。
+
+解决痛点：
+1. 无需手动复制聊天记录
+2. Telegram 自带搜索不加 # 标签基本搜不到内容
+
+接入后可以让 Claude 帮你搜关键词、梳理项目进展、整合多个群的内容、找出没跟进的待办。
 
 ## 功能
 
