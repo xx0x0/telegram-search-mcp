@@ -60,6 +60,79 @@ npm install
 
 > 端口默认 `5433`（telegram-search Docker Compose 映射的端口），注意不是标准的 5432。
 
+## 故障排查（踩过的坑）
+
+按下面这套从上到下检查，覆盖了实际部署中遇到的所有失败模式。
+
+### 1. Claude 没调用 MCP 工具，反而 `docker exec psql` 直连数据库
+
+**根因**：MCP 没注册成功，Claude 看不到工具，就退而求其次走容器内 SQL。
+
+**确认**：
+
+```bash
+# 看 ~/.claude.json 里目标项目下是否真的有 mcpServers
+python3 -c "import json; d=json.load(open('$HOME/.claude.json')); \
+  print(d.get('projects',{}).get('/你的/项目/路径',{}).get('mcpServers',{}))"
+```
+
+输出 `{}` 就是没注册。在 Claude 会话里直接问"现在挂着哪些 MCP"，没出现 `telegram-search` 也是同一个症状。
+
+**修复**：按上面 [安装](#安装) 章节把 mcpServers 写进 **项目级** 配置，然后完整退出 Claude Code 重开。
+
+### 2. pgvector 端口在宿主机访问不到
+
+`telegram-search` 仓库自带的 `docker/docker-compose.yml` **没有暴露 pgvector 端口**，MCP server 跑在宿主机上是连不进容器的。
+
+**确认**：
+
+```bash
+lsof -iTCP:5433 -sTCP:LISTEN
+# 没输出 = 端口没暴露
+```
+
+**修复**：在 `docker/docker-compose.yml` 的 `pgvector` 服务下加：
+
+```yaml
+  pgvector:
+    image: ghcr.io/tensorchord/pgvecto-rs:pg17-v0.4.0
+    ports:
+      - "5433:5432"   # 加这两行
+```
+
+然后 `docker compose down && docker compose up -d` 让映射生效。
+
+### 3. `command: "tsx"` 或 `command: "npx"` 启动失败
+
+见上面安装章节的说明。永远用 `node_modules/.bin/tsx` 的绝对路径。
+
+### 4. 改了配置但 Claude 仍然看不到 MCP
+
+MCP **不会热加载**。新开 tab、新开窗口都不够，必须完全退出 Claude Code 进程再重新启动。验证方式：重开后让 Claude 列出可用 MCP，应该能看到 `telegram-search` 以及它的 4 个工具。
+
+### 5. MCP 加载了但调用报错
+
+最常见是数据库连不上。手动测一下连接：
+
+```bash
+psql "postgresql://postgres:123456@localhost:5433/postgres" -c "SELECT count(*) FROM joined_chats;"
+```
+
+- 连接被拒 → Docker 没起 / 端口没暴露（回到 #2）
+- 密码错 → 检查 `DATABASE_URL` 里的密码是否和 `docker-compose.yml` 里 `POSTGRES_PASSWORD` 一致
+- 表不存在 → telegram-search 还没完成首次同步，先在 web UI 里登录账号并触发同步
+
+### 验证清单
+
+配置完成后，按顺序确认：
+
+- [ ] `lsof -iTCP:5433 -sTCP:LISTEN` 有 docker-proxy 监听
+- [ ] `psql ... -c "SELECT 1"` 能连上数据库
+- [ ] `~/.claude.json` 里目标项目的 `mcpServers` 含 `telegram-search`
+- [ ] 完整退出 Claude Code 后重开
+- [ ] 新会话里能看到 `telegram-search` MCP 及其 4 个工具
+- [ ] 让 Claude 调 `list_chats`，返回 JSON 而不是手写 SQL
+
 ## 使用示例
 
 接入后直接在 Claude Code 中说：
