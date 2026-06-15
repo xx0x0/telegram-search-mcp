@@ -28,23 +28,29 @@ cd telegram-search-mcp
 npm install
 ```
 
-在 `~/.claude/mcp.json` 中添加：
+在 Claude Code 的配置中添加 MCP 服务器。注意 Claude Code 实际读取的是 `~/.claude.json` 里 **项目级** 的 `projects.<项目路径>.mcpServers`，不是 `~/.claude/mcp.json`。如果你想在某个项目目录下用，就把配置写到那个项目下：
 
 ```json
 {
-  "mcpServers": {
-    "telegram-search": {
-      "command": "npx",
-      "args": ["tsx", "/path/to/telegram-search-mcp/src/index.ts"],
-      "env": {
-        "DATABASE_URL": "postgresql://postgres:YOUR_PASSWORD@localhost:5433/postgres"
+  "projects": {
+    "/绝对/项目/路径": {
+      "mcpServers": {
+        "telegram-search": {
+          "command": "/绝对/路径/telegram-search-mcp/node_modules/.bin/tsx",
+          "args": ["/绝对/路径/telegram-search-mcp/src/index.ts"],
+          "env": {
+            "DATABASE_URL": "postgresql://postgres:YOUR_PASSWORD@localhost:5433/postgres"
+          }
+        }
       }
     }
   }
 }
 ```
 
-重启 Claude Code 后生效。
+> **为什么用 `node_modules/.bin/tsx` 绝对路径而不是 `tsx` 或 `npx tsx`**：MCP 子进程不一定继承你 shell 的 PATH（取决于 Claude Code 怎么启动），全局没装 tsx 时 `command: "tsx"` 会直接 spawn 失败；`npx tsx` 在没缓存时会触发交互式确认，也会卡住。绝对路径最稳。
+
+改完 **完整退出 Claude Code**（不是新开 tab，是杀进程重开），新会话才会加载 MCP。
 
 ## 环境变量
 
